@@ -1,88 +1,63 @@
-# Skills
+# Claude Code Skills — Rust Development
 
-Skills are reusable prompts that teach Claude specific patterns for Java development.
+This directory contains skills for Rust application development. Each skill folder contains:
+- `SKILL.md` — loaded by Claude when the skill is invoked
+- `README.md` (optional) — human-readable documentation
+- `references/` (optional) — detailed reference files linked from SKILL.md
 
-## Structure Convention
+## How Skills Are Used
 
-Each skill folder contains:
-
-| File | Purpose | Audience |
-|------|---------|----------|
-| `SKILL.md` | Instructions for Claude | AI (loaded with `view`) |
-| `README.md` | Documentation, examples, tips | Humans (onboarding) |
+Claude automatically loads the relevant skill based on context, or you can invoke them explicitly:
+```
+"Use the rust-web-patterns skill to implement this handler"
+"Apply clean-code principles to this module"
+"Review this code using rust-code-review"
+```
 
 ## Available Skills
 
-### Workflow
-| Skill | Description |
-|-------|-------------|
-| [git-commit](git-commit/) | Conventional commit messages for Java projects |
-| [changelog-generator](changelog-generator/) | Generate changelogs from git commits |
-| [issue-triage](issue-triage/) | GitHub issue triage and categorization |
+### Workflow & Quality
 
-### Code Quality
-| Skill | Description |
-|-------|-------------|
-| [java-code-review](java-code-review/) | Systematic Java code review checklist |
-| [api-contract-review](api-contract-review/) | REST API audit: HTTP semantics, versioning, compatibility |
-| [concurrency-review](concurrency-review/) | Thread safety, race conditions, @Async, Virtual Threads |
-| [performance-smell-detection](performance-smell-detection/) | Code-level performance smells (streams, boxing, regex) |
-| [test-quality](test-quality/) | JUnit 5 + AssertJ testing patterns |
-| [maven-dependency-audit](maven-dependency-audit/) | Audit dependencies for updates and vulnerabilities |
-| [security-audit](security-audit/) | OWASP Top 10, input validation, injection prevention |
+| Skill | Description | Trigger |
+|-------|-------------|---------|
+| `rust-code-review` | Systematic Rust review: ownership, lifetimes, async, unsafe, idiomatic patterns | "review code", "check PR" |
+| `clean-code` | DRY/KISS/YAGNI, naming conventions, refactoring for Rust | "clean this code", "refactor" |
+| `api-contract-review` | REST API design review: HTTP semantics, versioning, backward compat | "review API", "check endpoints" |
 
 ### Architecture & Design
-| Skill | Description |
-|-------|-------------|
-| [architecture-review](architecture-review/) | Macro-level review: packages, modules, layers, boundaries |
-| [solid-principles](solid-principles/) | S.O.L.I.D. principles with Java examples |
-| [design-patterns](design-patterns/) | Factory, Builder, Strategy, Observer, Decorator, etc. |
-| [clean-code](clean-code/) | DRY, KISS, YAGNI, naming, refactoring |
+
+| Skill | Description | Trigger |
+|-------|-------------|---------|
+| `rust-architect` | Workspace design, crate boundaries, async patterns, production architecture | Designing Rust systems |
+| `rust-patterns` | Builder, Newtype, Typestate, Strategy, Observer, Repository in Rust | "implement pattern" |
 
 ### Framework & Data
-| Skill | Description |
-|-------|-------------|
-| [spring-boot-patterns](spring-boot-patterns/) | Spring Boot best practices |
-| [java-migration](java-migration/) | Java version upgrade guide (8→11→17→21) |
-| [jpa-patterns](jpa-patterns/) | JPA/Hibernate patterns (N+1, lazy loading, transactions) |
-| [logging-patterns](logging-patterns/) | Structured logging (JSON), SLF4J, MDC, AI-friendly formats |
 
-## Adding a New Skill
+| Skill | Description | Trigger |
+|-------|-------------|---------|
+| `rust-web-engineer` | Full implementation guide with references for web, data, auth, testing, cloud | Building axum services |
+| `rust-web-patterns` | axum patterns: handlers, extractors, state, middleware, error responses | axum questions |
+| `sqlx-patterns` | sqlx queries, transactions, migrations, compile-time checked queries | Database questions |
+| `tracing-patterns` | Structured logging with `tracing`, spans, MDC, JSON output, OpenTelemetry | Logging/observability |
 
-### Before You Start
+## Reference Files
 
-Validate your skill idea against existing skills:
+Detailed, copy-paste-ready reference implementations:
 
-- [ ] **No significant overlap** - Check the table above for similar skills
-- [ ] **Clear level** - Micro (functions) / Meso (classes) / Macro (packages) / Framework / Cross-cutting
-- [ ] **Clear type** - Audit (review existing code) or Template (show how to write)
-- [ ] **Unique value** - What does it add that doesn't exist?
-- [ ] **Focused scope** - Can be applied in one session (<15 checklist items)
+### rust-architect/references/
+| File | Contents |
+|------|---------|
+| `rust-setup.md` | Cargo.toml, project structure, main.rs, config.rs, state.rs, error.rs |
+| `async-patterns.md` | tokio channels, join!, select!, task management, backpressure, streams |
+| `error-handling.md` | thiserror, anyhow, error hierarchy, IntoResponse, panic handling |
+| `security.md` | argon2 password hashing, JWT, rustls, supply chain (cargo-audit/deny) |
+| `testing-patterns.md` | Unit tests, mockall, proptest, criterion benchmarks, snapshot testing |
 
-> 📖 **Full guidelines:** [docs/SKILL_GUIDELINES.md](../../docs/SKILL_GUIDELINES.md)
-
-### Implementation Steps
-
-1. Create folder: `.claude/skills/<skill-name>/`
-2. Create `SKILL.md` with instructions for Claude
-3. Create `README.md` with human documentation (use existing READMEs as template)
-4. Update this table
-5. Update main README.md
-
-## Usage
-
-Skills are automatically loaded by Claude Code based on context. You can also invoke them directly:
-
-```bash
-# Automatic - Claude detects when to use skills
-> "Commit these changes"        # Loads git-commit
-> "Review this code for SOLID"  # Loads solid-principles
-
-# Manual - invoke with slash command
-> /git-commit
-> /solid-principles
-```
-
-## Learn More
-
-- [Claude Code Skills Documentation](https://code.claude.com/docs/en/skills) - Official guide on creating and using skills
+### rust-web-engineer/references/
+| File | Contents |
+|------|---------|
+| `web.md` | axum router, handlers, extractors, validation, DTOs, pagination |
+| `data.md` | sqlx entities, CRUD queries, transactions, migrations, bulk insert |
+| `auth.md` | JWT middleware, argon2 hashing, API keys, refresh tokens, RBAC |
+| `testing.md` | TestApp setup, axum-test, auth tests, wiremock, sqlx::test |
+| `cloud.md` | Dockerfile (cargo-chef), docker-compose, GitHub Actions, Kubernetes |

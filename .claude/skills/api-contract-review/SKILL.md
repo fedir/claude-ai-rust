@@ -1,11 +1,11 @@
 ---
 name: api-contract-review
-description: Review REST API contracts for HTTP semantics, versioning, backward compatibility, and response consistency. Use when user asks "review API", "check endpoints", "REST review", or before releasing API changes.
+description: Review REST API contracts for HTTP semantics, versioning, backward compatibility, and response consistency. Use when user asks "review API", "check endpoints", "REST review", or before releasing API changes. Includes axum routing examples.
 ---
 
 # API Contract Review Skill
 
-Audit REST API design for correctness, consistency, and compatibility.
+Audit REST API design for correctness, consistency, and compatibility. Examples use Rust/axum.
 
 ## When to Use
 - User asks "review this API" / "check REST endpoints"

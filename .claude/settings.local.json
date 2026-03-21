@@ -1,19 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mvn:*)",
-      "Bash(find /Users/pminkows/IdeaProjects/claude-ai-spring-boot/src -type f -name *.java)",
+      "Bash(cargo:*)",
+      "Bash(rustup:*)",
       "Bash(ls:*)",
-      "Bash(jar tf:*)",
-      "Bash(java:*)",
-      "Bash(curl -s https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-parent/maven-metadata.xml)",
-      "Bash(grep -E \"\\\\.java$|\\\\.yml$|\\\\.properties$|src/\")",
+      "Bash(curl -s https://crates.io/api/v1/crates/*)",
+      "Bash(grep -E \"\\\\.rs$|\\\\.toml$|\\\\.sql$|src/\")",
       "Bash(git ls-tree:*)",
-      "Bash(grep -E \"\\\\.\\(java|yml|properties|xml\\)$\")",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
       "Bash(docker-compose up:*)",
+      "Bash(docker-compose down:*)",
       "Bash(docker ps:*)",
       "Bash(docker exec:*)",
-      "Bash(docker-compose down:*)"
+      "Bash(docker build:*)"
     ]
   }
 }

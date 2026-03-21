@@ -39,15 +39,19 @@
 
 ## Project General Instructions
 
-- Always use the latest versions of dependencies.
-- Always write Java code as the Spring Boot application.
-- Always use Maven for dependency management.
-- Always create test cases for the generated code both positive and negative.
-- Always generate the CircleCI pipeline in the .circleci directory to verify the code.
+- Always use the latest stable versions of crates from crates.io.
+- Always write Rust code using idiomatic patterns: ownership, borrowing, error handling with `Result`/`?`.
+- Always use Cargo for dependency and build management.
+- Always create test cases for the generated code — both unit tests (`#[test]`) and integration tests in `tests/`.
+- Always generate the GitHub Actions CI pipeline in `.github/workflows/` to verify the code.
 - Minimize the amount of code generated.
-- The Maven artifact name must be the same as the parent directory name.
-- Use semantic versioning for the Maven project. Each time you generate a new version, bump the PATCH section of the version number.
-- Use `pl.piomin.services` as the group ID for the Maven project and base Java package.
-- Do not use the Lombok library.
+- The Cargo package name must be the same as the parent directory name (snake_case).
+- Use semantic versioning for the Cargo package. Each time you generate a new version, bump the PATCH section.
+- Use `async`/`await` with `tokio` as the async runtime unless a synchronous design is explicitly required.
+- Do not use `unwrap()` or `expect()` in production code — propagate errors with `?` and custom error types.
+- Use `thiserror` for library error types and `anyhow` for application-level error handling.
 - Generate the Docker Compose file to run all components used by the application.
 - Update README.md each time you generate a new version.
+- Prefer `sqlx` for database access with compile-time checked queries.
+- Use `axum` as the default web framework for HTTP services.
+- Enable `tracing` with `tracing-subscriber` for structured logging.
