@@ -10,7 +10,7 @@ Audit REST API design for correctness, consistency, and compatibility. Examples 
 ## When to Use
 - User asks "review this API" / "check REST endpoints"
 - Before releasing API changes
-- Reviewing PR with controller changes
+- Reviewing PR with handler/router changes
 - Checking backward compatibility
 
 ---
@@ -21,7 +21,7 @@ Audit REST API design for correctness, consistency, and compatibility. Examples 
 |-------|---------|--------|
 | Wrong HTTP verb | POST for idempotent operation | Confusion, caching issues |
 | Missing versioning | `/users` instead of `/v1/users` | Breaking changes affect all clients |
-| Entity leak | JPA entity in response | Exposes internals, N+1 risk |
+| Model leak | DB row struct in response | Exposes internals (password hash, etc.) |
 | 200 with error | `{"status": 200, "error": "..."}` | Breaks error handling |
 | Inconsistent naming | `/getUsers` vs `/users` | Hard to learn API |
 
@@ -41,37 +41,31 @@ Audit REST API design for correctness, consistency, and compatibility. Examples 
 
 *PATCH can be idempotent depending on implementation
 
-### Common Mistakes
+### Common Mistakes (axum)
 
-```java
+```rust
 // ❌ POST for retrieval
-@PostMapping("/users/search")
-public List<User> searchUsers(@RequestBody SearchCriteria criteria) { }
+Router::new().route("/users/search", post(search_users));
 
 // ✅ GET with query params (or POST only if criteria is very complex)
-@GetMapping("/users")
-public List<User> searchUsers(
-    @RequestParam String name,
-    @RequestParam(required = false) String email) { }
+Router::new().route("/users", get(search_users));
+
+pub async fn search_users(
+    Query(params): Query<SearchParams>,
+) -> Result<Json<Vec<UserResponse>>, AppError> { ... }
 
 // ❌ GET for state change
-@GetMapping("/users/{id}/activate")
-public void activateUser(@PathVariable Long id) { }
+Router::new().route("/users/:id/activate", get(activate_user));
 
 // ✅ POST or PATCH for state change
-@PostMapping("/users/{id}/activate")
-public ResponseEntity<Void> activateUser(@PathVariable Long id) { }
+Router::new().route("/users/:id/activate", post(activate_user));
 
 // ❌ POST for idempotent update
-@PostMapping("/users/{id}")
-public User updateUser(@PathVariable Long id, @RequestBody UserDto dto) { }
+Router::new().route("/users/:id", post(update_user));
 
 // ✅ PUT for full replacement, PATCH for partial
-@PutMapping("/users/{id}")
-public User replaceUser(@PathVariable Long id, @RequestBody UserDto dto) { }
-
-@PatchMapping("/users/{id}")
-public User updateUser(@PathVariable Long id, @RequestBody UserPatchDto dto) { }
+Router::new()
+    .route("/users/:id", put(replace_user).patch(update_user));
 ```
 
 ---
@@ -86,22 +80,31 @@ public User updateUser(@PathVariable Long id, @RequestBody UserPatchDto dto) { }
 | Header | `Accept: application/vnd.api.v1+json` | Clean URLs | Hidden, harder to test |
 | Query param | `/users?version=1` | Easy to add | Easy to forget |
 
-### Recommended: URL Path
+### Recommended: URL Path (axum)
 
-```java
-// ✅ Versioned endpoints
-@RestController
-@RequestMapping("/api/v1/users")
-public class UserControllerV1 { }
+```rust
+// ✅ Versioned route nesting
+pub fn create_router(state: AppState) -> Router {
+    Router::new()
+        .nest("/api/v1", v1_routes())
+        .nest("/api/v2", v2_routes())
+        .with_state(state)
+}
 
-@RestController
-@RequestMapping("/api/v2/users")
-public class UserControllerV2 { }
+fn v1_routes() -> Router<AppState> {
+    Router::new()
+        .nest("/users", user_routes_v1())
+        .nest("/orders", order_routes_v1())
+}
+
+fn v2_routes() -> Router<AppState> {
+    Router::new()
+        .nest("/users", user_routes_v2()) // Updated response format
+}
 
 // ❌ No versioning
-@RestController
-@RequestMapping("/api/users")  // Breaking changes affect everyone
-public class UserController { }
+Router::new()
+    .route("/api/users", get(list_users)) // Breaking changes affect everyone
 ```
 
 ### Version Checklist
@@ -113,64 +116,72 @@ public class UserController { }
 
 ## Request/Response Design
 
-### DTO vs Entity
+### DTO vs DB Model
 
-```java
-// ❌ Entity in response (leaks internals)
-@GetMapping("/{id}")
-public User getUser(@PathVariable Long id) {
-    return userRepository.findById(id).orElseThrow();
-    // Exposes: password hash, internal IDs, lazy collections
+```rust
+// ❌ DB model in response (leaks internals)
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<User>, AppError> {
+    let user = db::users::find_by_id(&state.pool, id).await?
+        .ok_or(AppError::NotFound)?;
+    Ok(Json(user)) // Exposes: password_hash, internal fields
 }
 
 // ✅ DTO response
-@GetMapping("/{id}")
-public UserResponse getUser(@PathVariable Long id) {
-    User user = userService.findById(id);
-    return UserResponse.from(user);  // Only public fields
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UserResponse>, AppError> {
+    let user = db::users::find_by_id(&state.pool, id).await?
+        .ok_or(AppError::NotFound)?;
+    Ok(Json(UserResponse::from(user))) // Only public fields
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserResponse {
+    pub id: Uuid,
+    pub email: String,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+    // No password_hash, no internal status codes
 }
 ```
 
 ### Response Consistency
 
-```java
-// ❌ Inconsistent responses
-@GetMapping("/users")
-public List<User> getUsers() { }  // Returns array
+```rust
+// ❌ Inconsistent: array vs object vs primitive
+pub async fn list() -> Json<Vec<User>> { ... }     // array
+pub async fn get() -> Json<User> { ... }             // object
+pub async fn count() -> Json<i64> { ... }            // primitive
 
-@GetMapping("/users/{id}")
-public User getUser(@PathVariable Long id) { }  // Returns object
-
-@GetMapping("/users/count")
-public int countUsers() { }  // Returns primitive
-
-// ✅ Consistent wrapper (optional but recommended for large APIs)
-@GetMapping("/users")
-public ApiResponse<List<UserResponse>> getUsers() {
-    return ApiResponse.success(userService.findAll());
-}
-
-// Or at minimum, consistent structure:
-// - Collections: always wrapped or always raw (pick one)
-// - Single items: always object
-// - Counts/stats: always object { "count": 42 }
+// ✅ Consistent structure
+pub async fn list() -> Json<PageResponse<UserResponse>> { ... }
+pub async fn get() -> Json<UserResponse> { ... }
+pub async fn count() -> Json<CountResponse> { ... }  // { "count": 42 }
 ```
 
 ### Pagination
 
-```java
+```rust
 // ❌ No pagination on collections
-@GetMapping("/users")
-public List<User> getAllUsers() {
-    return userRepository.findAll();  // Could be millions
+pub async fn list_users(
+    State(state): State<AppState>,
+) -> Result<Json<Vec<UserResponse>>, AppError> {
+    let users = db::users::find_all(&state.pool).await?; // Could be millions
+    Ok(Json(users))
 }
 
 // ✅ Paginated
-@GetMapping("/users")
-public Page<UserResponse> getUsers(
-    @RequestParam(defaultValue = "0") int page,
-    @RequestParam(defaultValue = "20") int size) {
-    return userService.findAll(PageRequest.of(page, size));
+pub async fn list_users(
+    State(state): State<AppState>,
+    Query(params): Query<PaginationQuery>,
+) -> Result<Json<PageResponse<UserResponse>>, AppError> {
+    let page = db::users::list(&state.pool, params.page, params.per_page).await?;
+    Ok(Json(page.map(UserResponse::from)))
 }
 ```
 
@@ -190,7 +201,7 @@ public Page<UserResponse> getUsers(
 
 | Code | When to Use | Common Mistake |
 |------|-------------|----------------|
-| 400 Bad Request | Invalid input, validation failed | Using for "not found" |
+| 400 Bad Request | Malformed request syntax | Using for "not found" |
 | 401 Unauthorized | Not authenticated | Confusing with 403 |
 | 403 Forbidden | Authenticated but not allowed | Using 401 instead |
 | 404 Not Found | Resource doesn't exist | Using 400 |
@@ -200,27 +211,25 @@ public Page<UserResponse> getUsers(
 
 ### Anti-Pattern: 200 with Error Body
 
-```java
+```rust
 // ❌ NEVER DO THIS
-@GetMapping("/{id}")
-public ResponseEntity<Map<String, Object>> getUser(@PathVariable Long id) {
-    try {
-        User user = userService.findById(id);
-        return ResponseEntity.ok(Map.of("status", "success", "data", user));
-    } catch (NotFoundException e) {
-        return ResponseEntity.ok(Map.of(  // Still 200!
-            "status", "error",
-            "message", "User not found"
-        ));
+pub async fn get_user(
+    Path(id): Path<Uuid>,
+) -> Json<serde_json::Value> {
+    match find_user(id).await {
+        Ok(user) => Json(json!({ "status": "success", "data": user })),
+        Err(_) => Json(json!({ "status": "error", "message": "not found" })), // Still 200!
     }
 }
 
-// ✅ Use proper status codes
-@GetMapping("/{id}")
-public ResponseEntity<UserResponse> getUser(@PathVariable Long id) {
-    return userService.findById(id)
-        .map(ResponseEntity::ok)
-        .orElse(ResponseEntity.notFound().build());
+// ✅ Use proper status codes via AppError → IntoResponse
+pub async fn get_user(
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<Json<UserResponse>, AppError> {
+    let user = db::users::find_by_id(&state.pool, id).await?
+        .ok_or(AppError::NotFound)?;  // Returns 404
+    Ok(Json(UserResponse::from(user)))  // Returns 200
 }
 ```
 
@@ -230,46 +239,39 @@ public ResponseEntity<UserResponse> getUser(@PathVariable Long id) {
 
 ### Consistent Error Structure
 
-```java
-// ✅ Standard error response
-public class ErrorResponse {
-    private String code;        // Machine-readable: "USER_NOT_FOUND"
-    private String message;     // Human-readable: "User with ID 123 not found"
-    private Instant timestamp;
-    private String path;
-    private List<FieldError> errors;  // For validation errors
-}
+> See canonical `AppError` in `rust-architect/references/rust-setup.md`.
 
-// In GlobalExceptionHandler
-@ExceptionHandler(ResourceNotFoundException.class)
-public ResponseEntity<ErrorResponse> handleNotFound(
-        ResourceNotFoundException ex, HttpServletRequest request) {
-    return ResponseEntity.status(HttpStatus.NOT_FOUND)
-        .body(ErrorResponse.builder()
-            .code("RESOURCE_NOT_FOUND")
-            .message(ex.getMessage())
-            .timestamp(Instant.now())
-            .path(request.getRequestURI())
-            .build());
+```json
+{
+  "error": "USER_NOT_FOUND",
+  "message": "User with ID 550e8400-... not found"
+}
+```
+
+For validation errors, include field details:
+```json
+{
+  "error": "VALIDATION_ERROR",
+  "message": "Validation failed",
+  "fields": {
+    "email": "invalid email format",
+    "password": "must be at least 8 characters"
+  }
 }
 ```
 
 ### Security: Don't Expose Internals
 
-```java
-// ❌ Exposes stack trace
-@ExceptionHandler(Exception.class)
-public ResponseEntity<String> handleAll(Exception ex) {
-    return ResponseEntity.status(500)
-        .body(ex.getStackTrace().toString());  // Security risk!
+```rust
+// ❌ Exposes internal error details
+AppError::Database(e) => {
+    (StatusCode::INTERNAL_SERVER_ERROR, format!("DB error: {e}"))
 }
 
 // ✅ Generic message, log details server-side
-@ExceptionHandler(Exception.class)
-public ResponseEntity<ErrorResponse> handleAll(Exception ex) {
-    log.error("Unexpected error", ex);  // Full details in logs
-    return ResponseEntity.status(500)
-        .body(ErrorResponse.of("INTERNAL_ERROR", "An unexpected error occurred"));
+AppError::Database(e) => {
+    tracing::error!(error = %e, "Database error");
+    (StatusCode::INTERNAL_SERVER_ERROR, "internal server error".to_string())
 }
 ```
 
@@ -295,23 +297,23 @@ public ResponseEntity<ErrorResponse> handleAll(Exception ex) {
 - Add new endpoint
 - Add new optional query parameter
 
-### Deprecation Pattern
+### Deprecation Pattern (axum)
 
-```java
-@RestController
-@RequestMapping("/api/v1/users")
-public class UserControllerV1 {
+```rust
+fn user_routes() -> Router<AppState> {
+    Router::new()
+        // New canonical endpoint
+        .route("/", get(list_users))
+        // Deprecated endpoint — delegates to new handler, logs warning
+        .route("/by-email", get(get_by_email_deprecated))
+}
 
-    @Deprecated
-    @GetMapping("/by-email")  // Old endpoint
-    public UserResponse getByEmailOld(@RequestParam String email) {
-        return getByEmail(email);  // Delegate to new
-    }
-
-    @GetMapping(params = "email")  // New pattern
-    public UserResponse getByEmail(@RequestParam String email) {
-        return userService.findByEmail(email);
-    }
+pub async fn get_by_email_deprecated(
+    State(state): State<AppState>,
+    Query(params): Query<EmailQuery>,
+) -> Result<Json<UserResponse>, AppError> {
+    tracing::warn!(endpoint = "/users/by-email", "Deprecated endpoint called");
+    get_by_email(State(state), Query(params)).await
 }
 ```
 
@@ -324,55 +326,54 @@ public class UserControllerV1 {
 - [ ] POST for creation (returns 201 + Location)
 - [ ] PUT for full replacement (idempotent)
 - [ ] PATCH for partial updates
-- [ ] DELETE for removal (idempotent)
+- [ ] DELETE for removal (idempotent, returns 204)
 
 ### 2. URL Design
 - [ ] Versioned (`/v1/`, `/v2/`)
 - [ ] Nouns, not verbs (`/users`, not `/getUsers`)
 - [ ] Plural for collections (`/users`, not `/user`)
 - [ ] Hierarchical for relationships (`/users/{id}/orders`)
-- [ ] Consistent naming (kebab-case or camelCase, pick one)
+- [ ] Consistent naming (kebab-case preferred)
 
 ### 3. Request Handling
-- [ ] Validation with `@Valid`
+- [ ] Validation with `validator` or `garde` (at extractor level)
 - [ ] Clear error messages for validation failures
-- [ ] Request DTOs (not entities)
-- [ ] Reasonable size limits
+- [ ] Request DTOs (not DB models)
+- [ ] Reasonable size limits (`tower_http::limit::RequestBodyLimitLayer`)
 
 ### 4. Response Design
-- [ ] Response DTOs (not entities)
+- [ ] Response DTOs (not DB row structs)
 - [ ] Consistent structure across endpoints
 - [ ] Pagination for collections
 - [ ] Proper status codes (not 200 for errors)
+- [ ] `#[serde(rename_all = "camelCase")]` for JSON API convention
 
 ### 5. Error Handling
-- [ ] Consistent error format
+- [ ] Consistent error JSON format
 - [ ] Machine-readable error codes
 - [ ] Human-readable messages
-- [ ] No stack traces exposed
+- [ ] No stack traces or internal details exposed
 - [ ] Proper 4xx vs 5xx distinction
 
 ### 6. Compatibility
 - [ ] No breaking changes in current version
-- [ ] Deprecated endpoints documented
+- [ ] Deprecated endpoints documented and logged
 - [ ] Migration path for breaking changes
 
 ---
 
-## Token Optimization
+## Quick Scan Commands
 
-For large APIs:
-1. List all controllers: `find . -name "*Controller.java"`
-2. Sample 2-3 controllers for pattern analysis
-3. Check `@ExceptionHandler` configuration once
-4. Grep for specific anti-patterns:
-   ```bash
-   # Find potential entity leaks
-   grep -r "public.*Entity.*@GetMapping" --include="*.java"
+```bash
+# Find potential DB model leaks in handlers
+grep -rn "Json<.*Row\|Json<.*Entity\|Json<.*Model" src/handlers/
 
-   # Find 200 with error patterns
-   grep -r "ResponseEntity.ok.*error" --include="*.java"
+# Find handlers returning raw sqlx types
+grep -rn "sqlx::FromRow" src/handlers/
 
-   # Find unversioned APIs
-   grep -r "@RequestMapping.*api" --include="*.java" | grep -v "/v[0-9]"
-   ```
+# Find unversioned API routes
+grep -rn 'route.*"/api/' src/ | grep -v '/v[0-9]'
+
+# Check for unwrap() in handlers (panics = 500 without proper error)
+grep -rn 'unwrap()' src/handlers/
+```
