@@ -66,6 +66,7 @@ codegen-units = 1
 strip = true
 opt-level = 3
 
-[[bench]]
-name = "benchmarks"
-harness = false
+# Uncomment when you add benches/benchmarks.rs:
+# [[bench]]
+# name = "benchmarks"
+# harness = false
