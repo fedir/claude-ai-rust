@@ -48,6 +48,9 @@ jobs:
       - uses: rustsec/audit-check@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          # RUSTSEC-2023-0071: rsa Marvin Attack, no patch available.
+          # Lockfile artifact via sqlx-mysql — never compiled (postgres-only).
+          ignore: RUSTSEC-2023-0071
 
   test:
     name: Test
