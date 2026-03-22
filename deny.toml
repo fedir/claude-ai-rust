@@ -5,12 +5,7 @@ all-features = true
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
 unmaintained = "all"
-
-ignore = [
-    # RUSTSEC-2023-0071: rsa Marvin Attack — no upstream patch available.
-    # Pulled in via sqlx-mysql, which is never compiled (postgres-only project).
-    { id = "RUSTSEC-2023-0071", reason = "sqlx-mysql lockfile artifact; rsa is never compiled in this postgres-only project" },
-]
+# unused-ignored-advisory = "warn" (default) — keep empty ignore list to avoid noise
 
 [licenses]
 allow = [
@@ -21,11 +16,8 @@ allow = [
     "BSD-3-Clause",
     "ISC",
     "Unicode-3.0",
-    "Unicode-DFS-2016",
     "Zlib",
     "BSL-1.0",
-    "OpenSSL",
-    "MPL-2.0",
 ]
 confidence-threshold = 0.8
 
@@ -38,11 +30,13 @@ deny = [
     # Prefer rustls over openssl for TLS
     { name = "openssl-sys" },
 
-    # Use std::sync::LazyLock instead
-    { name = "lazy_static" },
+    # Use std::sync::LazyLock instead of lazy_static.
+    # wrappers: allow transitive use by crates we don't control.
+    { name = "lazy_static", wrappers = ["sharded-slab", "deadpool"] },
 
-    # Use native async fn in traits instead
-    { name = "async-trait" },
+    # Use native async fn in traits (Rust 1.75+) instead of async-trait.
+    # wrappers: allow transitive use by crates we don't control.
+    { name = "async-trait", wrappers = ["config"] },
 ]
 
 skip = []
