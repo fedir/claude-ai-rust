@@ -3,6 +3,7 @@ name = "placeholder"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
+license = "MIT"
 
 # Replace "placeholder" with the name of your project (snake_case, matches directory name).
 # Run: cargo init --name <your_project_name>
