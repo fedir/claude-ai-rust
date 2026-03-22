@@ -3,14 +3,14 @@ all-features = true
 
 [advisories]
 db-urls = ["https://github.com/rustsec/advisory-db"]
-vulnerability = "deny"
-unmaintained = "all"
 yanked = "deny"
+unmaintained = "all"
 
-# RUSTSEC-2023-0071: rsa Marvin Attack — no upstream patch available.
-# Pulled in transitively via sqlx-mysql, which is never enabled in this project
-# (we use postgres only). Safe to ignore until rsa publishes a fix.
-ignore = ["RUSTSEC-2023-0071"]
+ignore = [
+    # RUSTSEC-2023-0071: rsa Marvin Attack — no upstream patch available.
+    # Pulled in via sqlx-mysql, which is never compiled (postgres-only project).
+    { id = "RUSTSEC-2023-0071", reason = "sqlx-mysql lockfile artifact; rsa is never compiled in this postgres-only project" },
+]
 
 [licenses]
 allow = [
@@ -29,9 +29,6 @@ allow = [
 ]
 confidence-threshold = 0.8
 
-[licenses.private]
-ignore = false
-
 [bans]
 multiple-versions = "warn"
 wildcards = "allow"
@@ -39,7 +36,7 @@ highlight = "all"
 
 deny = [
     # Prefer rustls over openssl for TLS
-    { name = "openssl-sys", wrappers = [] },
+    { name = "openssl-sys" },
 
     # Use std::sync::LazyLock instead
     { name = "lazy_static" },
