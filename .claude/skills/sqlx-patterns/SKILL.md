@@ -253,37 +253,22 @@ sqlx::migrate!("./migrations").run(&pool).await?;
 
 ## Error Mapping to HTTP
 
+> **Canonical `AppError`** is in `rust-architect/references/rust-setup.md`.
+> Key sqlx-specific mapping:
+
 ```rust
-use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
-
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error("not found")]
-    NotFound,
-    #[error("conflict: {0}")]
-    Conflict(String),
-    #[error("database error")]
-    Database(#[from] sqlx::Error),
+// Inside AppError's IntoResponse impl:
+Self::Database(sqlx::Error::RowNotFound) => {
+    (StatusCode::NOT_FOUND, "NOT_FOUND", "not found".into())
 }
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, message) = match &self {
-            AppError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
-            AppError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
-            AppError::Database(sqlx::Error::RowNotFound) => (StatusCode::NOT_FOUND, "not found".into()),
-            AppError::Database(e) if is_unique_violation(e) => {
-                (StatusCode::CONFLICT, "already exists".into())
-            }
-            AppError::Database(_) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "internal error".into())
-            }
-        };
-        (status, message).into_response()
-    }
+Self::Database(e) if is_unique_violation(e) => {
+    (StatusCode::CONFLICT, "CONFLICT", "already exists".into())
 }
-
+Self::Database(_) => {
+    tracing::error!(error = %self, "Database error");
+    (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error".into())
+}
+// Helper:
 fn is_unique_violation(e: &sqlx::Error) -> bool {
     matches!(e, sqlx::Error::Database(db) if db.code().as_deref() == Some("23505"))
 }
