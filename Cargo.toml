@@ -1,7 +1,8 @@
 [package]
 name = "placeholder"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 
 # Replace "placeholder" with the name of your project (snake_case, matches directory name).
 # Run: cargo init --name <your_project_name>
@@ -13,7 +14,8 @@ tokio = { version = "1", features = ["full"] }
 # Web framework
 axum = { version = "0.8", features = ["macros"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-gzip", "timeout", "request-id"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -30,12 +32,40 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
+# Configuration
+config = "0.14"
+
+# Validation (see also: garde as modern alternative)
+validator = { version = "0.19", features = ["derive"] }
+
 # Utilities
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-validator = { version = "0.19", features = ["derive"] }
 
 [dev-dependencies]
-tokio-test = "0.4"
 axum-test = "17"
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres"] }
+tokio = { version = "1", features = ["test-util", "macros"] }
+wiremock = "0.6"
+proptest = "1"
+insta = { version = "1", features = ["json"] }
+criterion = { version = "0.5", features = ["async_tokio"] }
+fake = { version = "3", features = ["derive", "uuid", "chrono"] }
+mockall = "0.13"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Allow common pedantic items that are too noisy
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+opt-level = 3
+
+[[bench]]
+name = "benchmarks"
+harness = false
