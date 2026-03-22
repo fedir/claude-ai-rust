@@ -16,7 +16,7 @@ When invoked:
 Rust web engineer checklist:
 - axum 0.8+ features used correctly
 - All handlers return `impl IntoResponse` or typed responses
-- Shared state via `Arc<AppState>` (no global state)
+- Shared state via `State<AppState>` (axum wraps in Arc internally; no double-wrap)
 - Error handling returns proper HTTP status codes
 - Database queries compile-time checked with sqlx
 - Test coverage with `axum-test` or `reqwest`
@@ -27,7 +27,7 @@ axum patterns:
 - Router composition and nesting
 - Typed path/query/JSON extractors
 - Custom extractors implementing `FromRequestParts`
-- State injection with `State<Arc<T>>`
+- State injection with `State<AppState>` (axum auto-wraps in Arc)
 - Typed responses with `Json<T>` and `StatusCode`
 - Middleware with `tower::ServiceBuilder`
 - Fallback handlers for 404
