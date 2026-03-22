@@ -92,7 +92,7 @@ let r: &'a T = unsafe { &*ptr };
 - [ ] `select!` branches are cancellation-safe
 - [ ] Timeout handling prevents indefinite waits
 
-## Category 5: Idiomatic Rust
+## Category 5: Idiomatic Rust (2024 Edition)
 
 | Anti-pattern | Idiomatic |
 |-------------|-----------|
@@ -103,13 +103,18 @@ let r: &'a T = unsafe { &*ptr };
 | Indexing with `vec[i]` | `.get(i)` for safe access |
 | `impl Trait` for private fn | Concrete type preferred |
 | Redundant `&` in `for &x in iter` | Use `.iter().copied()` or `.cloned()` |
+| `if let Some(x) = y { ... } else { return Err(...) }` | `let Some(x) = y else { return Err(...) };` (let-else) |
+| `lazy_static!` / `once_cell::sync::Lazy` | `std::sync::LazyLock` (stable in std) |
+| `#[async_trait]` on trait | Native `async fn` in trait (Rust 1.75+) |
+| Missing `#[must_use]` on fns returning `Result` | Add `#[must_use]` to prevent silent drops |
+| `edition = "2021"` | `edition = "2024"` with `rust-version = "1.85"` |
 
 ## Category 6: Performance
 
 | Issue | Check | Fix |
 |-------|-------|-----|
 | String allocation | `format!("{}", x)` in hot path | `write!` into existing buffer |
-| Regex in loop | `Regex::new(...)` per iteration | Static `lazy_static!` or `once_cell::sync::Lazy` |
+| Regex in loop | `Regex::new(...)` per iteration | `std::sync::LazyLock` static |
 | Vec without capacity | `Vec::new()` when size known | `Vec::with_capacity(n)` |
 | Repeated HashMap lookup | `.contains_key` + `.insert` | `.entry().or_insert()` |
 | N+1 queries | Loop with DB query inside | Batch query outside loop |
