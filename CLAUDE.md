@@ -41,7 +41,7 @@
 
 ### Rust Standards
 - Use **Rust edition 2024** (`edition = "2024"` in Cargo.toml).
-- MSRV: Rust 1.85+ (required for edition 2024).
+- MSRV: Rust 1.88+.
 - Always use the latest stable versions of crates from crates.io.
 - Always write idiomatic Rust: ownership, borrowing, error handling with `Result`/`?`.
 - Use native `async fn` in traits (Rust 1.75+) — do NOT use the `async-trait` crate.
