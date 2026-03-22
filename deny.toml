@@ -5,7 +5,12 @@ all-features = true
 db-urls = ["https://github.com/rustsec/advisory-db"]
 vulnerability = "deny"
 unmaintained = "all"
-yanked = "all"
+yanked = "deny"
+
+# RUSTSEC-2023-0071: rsa Marvin Attack — no upstream patch available.
+# Pulled in transitively via sqlx-mysql, which is never enabled in this project
+# (we use postgres only). Safe to ignore until rsa publishes a fix.
+ignore = ["RUSTSEC-2023-0071"]
 
 [licenses]
 allow = [
