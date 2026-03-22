@@ -1,0 +1,9 @@
+# Maximum cognitive complexity before clippy warns
+cognitive-complexity-threshold = 15
+
+# Allow these common patterns
+too-many-arguments-threshold = 8
+type-complexity-threshold = 300
+
+# Documentation requirements
+missing-docs-in-crate-items = false

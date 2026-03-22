@@ -1,0 +1,43 @@
+# Build artifacts (can be gigabytes)
+target/
+
+# Version control
+.git/
+.gitignore
+
+# Documentation (not needed in image)
+*.md
+!README.md
+LICENSE*
+ROADMAP.md
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+
+# Environment files (secrets should come from runtime env)
+.env
+.env.*
+
+# CI/CD
+.github/
+.circleci/
+
+# Claude/AI config
+.claude/
+
+# Coverage and profiling
+*.profraw
+*.profdata
+coverage/
+tarpaulin-report.html
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# OS
+.DS_Store
+Thumbs.db
