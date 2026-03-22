@@ -6,7 +6,8 @@
 [package]
 name = "myapp"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+rust-version = "1.85"
 
 [dependencies]
 # Async runtime
@@ -33,17 +34,28 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
+# Configuration
+config = "0.14"
+
+# Validation (see also: garde crate as modern alternative)
+validator = { version = "0.19", features = ["derive"] }
+
 # Utilities
 uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
-validator = { version = "0.19", features = ["derive"] }
-config = "0.14"
-tokio-signal = "0.3"
 
 [dev-dependencies]
 axum-test = "17"
-tokio-test = "0.4"
+tokio = { version = "1", features = ["test-util", "macros"] }
 wiremock = "0.6"
+proptest = "1"
+insta = { version = "1", features = ["json"] }
+mockall = "0.13"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
 
 [profile.release]
 lto = true
@@ -59,6 +71,11 @@ myapp/
 ├── Cargo.toml
 ├── Cargo.lock           # Committed for binaries
 ├── .env.example
+├── .gitignore
+├── .dockerignore
+├── rustfmt.toml
+├── clippy.toml
+├── deny.toml
 ├── Dockerfile
 ├── docker-compose.yml
 ├── migrations/
@@ -119,7 +136,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // Load config
-    let config = config::Config::from_env().context("loading configuration")?;
+    let config = config::AppConfig::load().context("loading configuration")?;
 
     // Database
     let pool = sqlx::PgPool::connect(&config.database_url)
@@ -131,7 +148,7 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("running migrations")?;
 
-    // App state
+    // App state — axum wraps this in Arc internally via with_state()
     let state = state::AppState::new(pool, config.clone());
 
     // Router
@@ -182,11 +199,11 @@ async fn shutdown_signal() {
 ## config.rs
 
 ```rust
-use anyhow::{Context, Result};
+use config::{Config, Environment};
 use serde::Deserialize;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Config {
+pub struct AppConfig {
     #[serde(default = "default_port")]
     pub port: u16,
     pub database_url: String,
@@ -198,34 +215,44 @@ pub struct Config {
 fn default_port() -> u16 { 8080 }
 fn default_log_level() -> String { "info".to_string() }
 
-impl Config {
-    pub fn from_env() -> Result<Self> {
-        envy::from_env::<Config>().context("reading config from environment variables")
+impl AppConfig {
+    pub fn load() -> anyhow::Result<Self> {
+        let config = Config::builder()
+            .add_source(Environment::default())
+            .build()?;
+        Ok(config.try_deserialize()?)
     }
 }
 ```
 
 ## state.rs
 
+axum wraps state in `Arc` internally when you call `.with_state()`.
+Do NOT double-wrap with `Arc<AppState>`. Just derive `Clone`.
+
+`PgPool` is already `Arc`-based internally, so cloning is cheap.
+
 ```rust
-use std::sync::Arc;
 use sqlx::PgPool;
-use crate::config::Config;
+use crate::config::AppConfig;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
-    pub config: Arc<Config>,
+    pub config: AppConfig,
 }
 
 impl AppState {
-    pub fn new(pool: PgPool, config: Config) -> Self {
-        Self { pool, config: Arc::new(config) }
+    pub fn new(pool: PgPool, config: AppConfig) -> Self {
+        Self { pool, config }
     }
 }
 ```
 
 ## error.rs
+
+> **Canonical definition** — other files reference this.
+> See `rust-web-patterns` skill for the full handler error flow.
 
 ```rust
 use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
@@ -239,6 +266,8 @@ pub enum AppError {
     Validation(#[from] validator::ValidationErrors),
     #[error("unauthorized")]
     Unauthorized,
+    #[error("token expired")]
+    TokenExpired,
     #[error("forbidden")]
     Forbidden,
     #[error("conflict: {0}")]
@@ -252,13 +281,16 @@ pub enum AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, code, msg) = match &self {
-            AppError::NotFound => (StatusCode::NOT_FOUND, "NOT_FOUND", self.to_string()),
-            AppError::Validation(e) => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", e.to_string()),
-            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", self.to_string()),
-            AppError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", self.to_string()),
-            AppError::Conflict(m) => (StatusCode::CONFLICT, "CONFLICT", m.clone()),
-            AppError::Database(sqlx::Error::RowNotFound) => (StatusCode::NOT_FOUND, "NOT_FOUND", "not found".into()),
-            AppError::Database(e) if is_unique_violation(e) => {
+            Self::NotFound => (StatusCode::NOT_FOUND, "NOT_FOUND", self.to_string()),
+            Self::Validation(e) => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", e.to_string()),
+            Self::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", self.to_string()),
+            Self::TokenExpired => (StatusCode::UNAUTHORIZED, "TOKEN_EXPIRED", self.to_string()),
+            Self::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", self.to_string()),
+            Self::Conflict(m) => (StatusCode::CONFLICT, "CONFLICT", m.clone()),
+            Self::Database(sqlx::Error::RowNotFound) => {
+                (StatusCode::NOT_FOUND, "NOT_FOUND", "not found".into())
+            }
+            Self::Database(e) if is_unique_violation(e) => {
                 (StatusCode::CONFLICT, "CONFLICT", "already exists".into())
             }
             _ => {
@@ -290,7 +322,7 @@ use utoipa_swagger_ui::SwaggerUi;
 #[derive(OpenApi)]
 #[openapi(
     paths(handlers::users::list, handlers::users::create, handlers::users::get_by_id),
-    components(schemas(dto::user::UserResponse, dto::user::CreateUserRequest, AppError)),
+    components(schemas(dto::user::UserResponse, dto::user::CreateUserRequest)),
     tags((name = "users", description = "User management"))
 )]
 struct ApiDoc;
