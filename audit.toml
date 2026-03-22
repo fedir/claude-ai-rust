@@ -1,4 +1,7 @@
 [advisories]
-# No advisories ignored — add entries here if a vulnerability has no available
-# patch and does not affect this project's compiled code paths.
-ignore = []
+# RUSTSEC-2023-0071: rsa Marvin Attack — no upstream patch available.
+# rsa is pulled into the lockfile via sqlx-mysql (sqlx resolves all database
+# drivers into the lockfile regardless of enabled features). The MySQL driver
+# and rsa are NEVER compiled — only the postgres feature is enabled.
+# Remove this entry once rsa publishes a patched version.
+ignore = ["RUSTSEC-2023-0071"]
