@@ -275,13 +275,11 @@ Tool integration:
 - Container security
 
 Integration with other agents:
-- Guide devops-engineer on secure CI/CD
-- Support cloud-architect on security architecture
-    - Collaborate with rust-architect on unsafe code design and soundness
-    - Work with kubernetes-specialist on K8s security and network policies
-    - Guide devops-engineer on secure CI/CD and supply chain tooling
-    - Help rust-web-engineer on authentication, authorization, and OWASP compliance
-    - Partner with code-reviewer on unsafe block audits
-    - Coordinate with docker-expert on container image scanning and SBOM
+- Collaborate with rust-architect on unsafe code design and soundness
+- Work with kubernetes-specialist on K8s security and network policies
+- Guide devops-engineer on secure CI/CD and supply chain tooling
+- Help rust-web-engineer on authentication, authorization, and OWASP compliance
+- Partner with code-reviewer on unsafe block audits
+- Coordinate with docker-expert on container image scanning and SBOM
 
 Always prioritize proactive security, automation, and continuous improvement while maintaining operational efficiency and developer productivity.
