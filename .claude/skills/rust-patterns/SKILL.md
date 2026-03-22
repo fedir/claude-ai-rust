@@ -1,3 +1,8 @@
+---
+name: rust-patterns
+description: Idiomatic Rust design patterns — Builder, Newtype, Typestate, Strategy, Observer, Repository — plus modern Rust 2024 idioms like let-else, must_use, and LazyLock.
+---
+
 # Rust Design Patterns Skill
 
 Common Rust design patterns with idiomatic implementations: Builder, Newtype, Typestate, Strategy, Observer, and more.

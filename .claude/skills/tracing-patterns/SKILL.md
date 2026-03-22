@@ -1,3 +1,8 @@
+---
+name: tracing-patterns
+description: Structured logging and distributed tracing for Rust with the tracing ecosystem — subscriber setup, instrument macro, manual spans, axum TraceLayer, request IDs, JSON output, and OpenTelemetry integration.
+---
+
 # Tracing Patterns Skill
 
 Structured logging and distributed tracing for Rust with the `tracing` ecosystem, spans, fields, and JSON output.

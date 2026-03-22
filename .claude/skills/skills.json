@@ -1,0 +1,163 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "skill": {
+      "*": "allow"
+    }
+  },
+  "skills": [
+    {
+      "name": "rust-architect",
+      "description": "Rust system architecture workflows — Cargo workspace layout, crate boundaries, async design, dependency selection, error hierarchy, and production verification gates.",
+      "category": "architecture",
+      "path": ".claude/skills/rust-architect/SKILL.md",
+      "references": [
+        ".claude/skills/rust-architect/references/rust-setup.md",
+        ".claude/skills/rust-architect/references/async-patterns.md",
+        ".claude/skills/rust-architect/references/error-handling.md",
+        ".claude/skills/rust-architect/references/security.md",
+        ".claude/skills/rust-architect/references/testing-patterns.md",
+        ".claude/skills/rust-architect/references/worker-patterns.md"
+      ],
+      "triggers": [
+        "design system",
+        "workspace structure",
+        "crate boundaries",
+        "async design",
+        "architecture"
+      ]
+    },
+    {
+      "name": "rust-web-engineer",
+      "description": "Full implementation guide for axum web services — domain model, error types, sqlx data layer, service layer, handlers, and tests. References cover web, data, auth, testing, and cloud deployment.",
+      "category": "implementation",
+      "path": ".claude/skills/rust-web-engineer/SKILL.md",
+      "references": [
+        ".claude/skills/rust-web-engineer/references/web.md",
+        ".claude/skills/rust-web-engineer/references/data.md",
+        ".claude/skills/rust-web-engineer/references/auth.md",
+        ".claude/skills/rust-web-engineer/references/testing.md",
+        ".claude/skills/rust-web-engineer/references/cloud.md"
+      ],
+      "triggers": [
+        "build axum service",
+        "REST API",
+        "implement handler",
+        "add endpoint",
+        "web service"
+      ]
+    },
+    {
+      "name": "rust-web-patterns",
+      "description": "axum patterns and best practices — router composition, typed extractors, shared AppState, Tower middleware stack, error responses via IntoResponse, and graceful shutdown.",
+      "category": "implementation",
+      "path": ".claude/skills/rust-web-patterns/SKILL.md",
+      "references": [],
+      "triggers": [
+        "axum handler",
+        "router",
+        "extractor",
+        "middleware",
+        "State<AppState>"
+      ]
+    },
+    {
+      "name": "grpc-patterns",
+      "description": "tonic gRPC server and client patterns for Rust — protobuf setup, unary and streaming RPCs, interceptors, health checks, and integration testing.",
+      "category": "implementation",
+      "path": ".claude/skills/grpc-patterns/SKILL.md",
+      "references": [],
+      "triggers": [
+        "gRPC",
+        "tonic",
+        "protobuf",
+        "streaming RPC",
+        "service-to-service"
+      ]
+    },
+    {
+      "name": "sqlx-patterns",
+      "description": "sqlx patterns for Rust — compile-time checked queries, connection pools, transactions with FOR UPDATE SKIP LOCKED, dynamic QueryBuilder, offline mode, migrations, and error mapping to HTTP.",
+      "category": "implementation",
+      "path": ".claude/skills/sqlx-patterns/SKILL.md",
+      "references": [],
+      "triggers": [
+        "sqlx",
+        "database query",
+        "migration",
+        "transaction",
+        "PostgreSQL"
+      ]
+    },
+    {
+      "name": "tracing-patterns",
+      "description": "Structured logging and distributed tracing for Rust with the tracing ecosystem — subscriber setup, instrument macro, manual spans, axum TraceLayer, request IDs, JSON output, and OpenTelemetry integration.",
+      "category": "observability",
+      "path": ".claude/skills/tracing-patterns/SKILL.md",
+      "references": [],
+      "triggers": [
+        "logging",
+        "tracing",
+        "observability",
+        "span",
+        "OpenTelemetry"
+      ]
+    },
+    {
+      "name": "rust-patterns",
+      "description": "Idiomatic Rust design patterns — Builder, Newtype, Typestate, Strategy, Observer, Repository — plus modern Rust 2024 idioms like let-else, must_use, and LazyLock.",
+      "category": "design",
+      "path": ".claude/skills/rust-patterns/SKILL.md",
+      "references": [],
+      "triggers": [
+        "design pattern",
+        "builder pattern",
+        "typestate",
+        "newtype",
+        "state machine"
+      ]
+    },
+    {
+      "name": "rust-code-review",
+      "description": "Systematic Rust code review covering ownership, lifetimes, unsafe soundness, async correctness, idiomatic Rust 2024 patterns, performance, and security. Use when asked to review code or audit a PR.",
+      "category": "quality",
+      "path": ".claude/skills/rust-code-review/SKILL.md",
+      "references": [],
+      "triggers": [
+        "review code",
+        "code review",
+        "check PR",
+        "audit unsafe",
+        "review this"
+      ]
+    },
+    {
+      "name": "clean-code",
+      "description": "Clean Code principles (DRY, KISS, YAGNI), naming conventions, function design, and refactoring for Rust. Use when user says \"clean this code\", \"refactor\", \"improve readability\", or when reviewing code quality.",
+      "category": "quality",
+      "path": ".claude/skills/clean-code/SKILL.md",
+      "references": [],
+      "triggers": [
+        "clean code",
+        "refactor",
+        "improve readability",
+        "code quality",
+        "naming"
+      ]
+    },
+    {
+      "name": "api-contract-review",
+      "description": "Review REST API contracts for HTTP semantics, versioning, backward compatibility, and response consistency. Use when user asks \"review API\", \"check endpoints\", \"REST review\", or before releasing API changes. Includes axum routing examples.",
+      "category": "quality",
+      "path": ".claude/skills/api-contract-review/SKILL.md",
+      "references": [],
+      "triggers": [
+        "review API",
+        "check endpoints",
+        "REST review",
+        "backward compatibility",
+        "API contract"
+      ]
+    }
+  ]
+}

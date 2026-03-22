@@ -1,3 +1,8 @@
+---
+name: rust-web-patterns
+description: axum patterns and best practices — router composition, typed extractors, shared AppState, Tower middleware stack, error responses via IntoResponse, and graceful shutdown.
+---
+
 # Rust Web Patterns Skill
 
 axum patterns and best practices: handlers, extractors, shared state, middleware, error responses, and project structure.

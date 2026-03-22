@@ -1,3 +1,8 @@
+---
+name: rust-web-engineer
+description: Full implementation guide for axum web services — domain model, error types, sqlx data layer, service layer, handlers, and tests. References cover web, data, auth, testing, and cloud deployment.
+---
+
 # Rust Web Engineer Skill
 
 Full implementation guide for Rust web services with axum, sqlx, authentication, testing, and cloud deployment.
