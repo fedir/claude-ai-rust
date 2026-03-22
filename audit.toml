@@ -1,10 +1,4 @@
 [advisories]
-# RUSTSEC-2023-0071: rsa crate — Marvin Attack timing side-channel.
-# No upstream patch is available (patched versions: none).
-#
-# Root cause: sqlx unconditionally resolves sqlx-mysql (and its rsa dependency)
-# into the lockfile even when only the `postgres` feature is enabled. The MySQL
-# driver and rsa are NEVER compiled in this project — only Postgres is used.
-#
-# This ignore can be removed once the rsa crate publishes a patched version.
-ignore = ["RUSTSEC-2023-0071"]
+# No advisories ignored — add entries here if a vulnerability has no available
+# patch and does not affect this project's compiled code paths.
+ignore = []
