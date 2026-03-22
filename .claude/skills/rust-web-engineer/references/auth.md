@@ -24,7 +24,7 @@ pub struct AuthUser {
     pub roles: Vec<String>,
 }
 
-#[async_trait::async_trait]
+// Native async fn in traits — no async-trait crate needed (Rust 1.75+)
 impl<S> FromRequestParts<S> for AuthUser
 where
     S: Send + Sync,
@@ -65,7 +65,6 @@ where
 // RBAC helper
 pub struct RequireRole(pub &'static str);
 
-#[async_trait::async_trait]
 impl<S> FromRequestParts<S> for RequireRole
 where
     S: Send + Sync,
@@ -182,7 +181,6 @@ pub struct ApiKeyAuth {
     pub client_id: String,
 }
 
-#[async_trait::async_trait]
 impl<S> FromRequestParts<S> for ApiKeyAuth
 where
     S: Send + Sync,

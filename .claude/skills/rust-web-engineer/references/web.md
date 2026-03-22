@@ -181,7 +181,6 @@ use validator::Validate;
 
 pub struct ValidatedJson<T>(pub T);
 
-#[async_trait::async_trait]
 impl<T, S> FromRequest<S> for ValidatedJson<T>
 where
     T: serde::de::DeserializeOwned + Validate,
