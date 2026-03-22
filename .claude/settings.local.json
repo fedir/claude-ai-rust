@@ -2,15 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(cargo:*)",
+      "Bash(cargo-nextest:*)",
+      "Bash(cargo-deny:*)",
+      "Bash(cargo-audit:*)",
+      "Bash(sqlx:*)",
       "Bash(rustup:*)",
       "Bash(ls:*)",
       "Bash(curl -s https://crates.io/api/v1/crates/*)",
-      "Bash(grep -E \"\\\\.rs$|\\\\.toml$|\\\\.sql$|src/\")",
       "Bash(git ls-tree:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
-      "Bash(docker-compose up:*)",
-      "Bash(docker-compose down:*)",
+      "Bash(git status:*)",
+      "Bash(docker compose:*)",
       "Bash(docker ps:*)",
       "Bash(docker exec:*)",
       "Bash(docker build:*)"
