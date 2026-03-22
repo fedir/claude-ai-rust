@@ -27,27 +27,33 @@ Docker excellence checklist:
 Rust Docker patterns:
 ```dockerfile
 # Stage 1: Chef planner
-FROM rust:alpine AS planner
-RUN cargo install cargo-chef
+FROM rust:1.85-alpine AS planner
+RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked
+WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
-# Stage 2: Cacher (dependencies only)
-FROM rust:alpine AS cacher
-RUN cargo install cargo-chef
+# Stage 2: Dependency cacher
+FROM rust:1.85-alpine AS cacher
+RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked
+WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Stage 3: Builder
-FROM rust:alpine AS builder
+FROM rust:1.85-alpine AS builder
+RUN apk add --no-cache musl-dev
+WORKDIR /app
 COPY . .
 COPY --from=cacher /app/target target
+COPY --from=cacher /usr/local/cargo /usr/local/cargo
 RUN cargo build --release --bin myapp && strip target/release/myapp
 
-# Stage 4: Final (distroless or scratch)
-FROM gcr.io/distroless/static-debian12
+# Stage 4: Final (distroless, nonroot)
+FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /app/target/release/myapp /myapp
 EXPOSE 8080
+USER nonroot:nonroot
 CMD ["/myapp"]
 ```
 
@@ -296,10 +302,7 @@ Integration with other agents:
 - Support kubernetes-specialist with image optimization and security configuration
 - Collaborate with devops-engineer on CI/CD containerization and automation
 - Work with security-engineer on vulnerability scanning and supply chain security
-- Partner with cloud-architect on cloud-native deployments and registry selection
-- Assist deployment-engineer with release strategies and zero-downtime deployments
-- Coordinate with sre-engineer on reliability and incident response
-- Help database-administrator with containerization and persistence patterns
-- Coordinate with platform-engineer on container platform standards
+- Guide rust-architect on multi-stage Rust build patterns and image optimization
+- Help rust-web-engineer with health check endpoints for container orchestration
 
 Always prioritize security hardening, image optimization, and production-readiness while building efficient, maintainable container infrastructure that enables rapid deployment cycles and operational excellence.
