@@ -14,7 +14,7 @@ axum patterns and best practices: handlers, extractors, shared state, middleware
 ```
 src/
 ├── main.rs              # Entry point: init tracing, pool, router, bind
-├── config.rs            # Config from env vars (config crate or envy)
+├── config.rs            # Config from env vars (config crate)
 ├── error.rs             # AppError enum + IntoResponse impl
 ├── state.rs             # AppState struct
 ├── router.rs            # Router composition
@@ -39,14 +39,17 @@ src/
 
 ## AppState
 
+axum wraps state in `Arc` internally when you call `.with_state()`.
+Do NOT double-wrap with `Arc<AppState>`. Just derive `Clone`.
+`PgPool` is already `Arc`-based internally, so cloning is cheap.
+
 ```rust
-use std::sync::Arc;
 use sqlx::PgPool;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
-    pub config: Arc<Config>,
+    pub config: AppConfig,
 }
 ```
 
@@ -178,48 +181,10 @@ fn default_per_page() -> i64 { 20 }
 
 ## Error Handling
 
-```rust
-use axum::{http::StatusCode, response::{IntoResponse, Response}, Json};
-use serde_json::json;
-
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error("not found")]
-    NotFound,
-    #[error("validation error: {0}")]
-    Validation(#[from] validator::ValidationErrors),
-    #[error("unauthorized")]
-    Unauthorized,
-    #[error("forbidden")]
-    Forbidden,
-    #[error("conflict: {0}")]
-    Conflict(String),
-    #[error("database error")]
-    Database(#[from] sqlx::Error),
-    #[error("internal error")]
-    Internal(#[from] anyhow::Error),
-}
-
-impl IntoResponse for AppError {
-    fn into_response(self) -> Response {
-        let (status, code, message) = match &self {
-            AppError::NotFound => (StatusCode::NOT_FOUND, "NOT_FOUND", self.to_string()),
-            AppError::Validation(e) => (StatusCode::UNPROCESSABLE_ENTITY, "VALIDATION_ERROR", e.to_string()),
-            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED", self.to_string()),
-            AppError::Forbidden => (StatusCode::FORBIDDEN, "FORBIDDEN", self.to_string()),
-            AppError::Conflict(msg) => (StatusCode::CONFLICT, "CONFLICT", msg.clone()),
-            AppError::Database(sqlx::Error::RowNotFound) => (StatusCode::NOT_FOUND, "NOT_FOUND", "not found".into()),
-            AppError::Database(e) if is_unique_violation(e) => (StatusCode::CONFLICT, "CONFLICT", "already exists".into()),
-            _ => {
-                tracing::error!(error = %self, "Internal error");
-                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "internal server error".into())
-            }
-        };
-
-        (status, Json(json!({ "error": code, "message": message }))).into_response()
-    }
-}
-```
+> **Canonical `AppError` definition** is in `rust-architect/references/rust-setup.md`.
+> Key mapping: `NotFound` → 404, `Validation` → 422, `Unauthorized` → 401,
+> `Forbidden` → 403, `Conflict` → 409, `Database` → 404/409/500, `Internal` → 500.
+> Never expose internal error details to clients.
 
 ---
 
@@ -235,7 +200,7 @@ pub struct AuthUser {
     pub roles: Vec<String>,
 }
 
-#[async_trait::async_trait]
+// Native async fn in traits — no async-trait crate needed (Rust 1.75+)
 impl<S> FromRequestParts<S> for AuthUser
 where
     S: Send + Sync,
@@ -269,51 +234,9 @@ pub async fn admin_only(
 
 ## Graceful Shutdown
 
-```rust
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    init_tracing();
-    let config = Config::from_env()?;
-    let pool = create_pool(&config.database_url).await?;
-    sqlx::migrate!("./migrations").run(&pool).await?;
-
-    let state = AppState { pool, config: Arc::new(config) };
-    let app = create_router(state);
-
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-
-    info!(%addr, "Server listening");
-
-    axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
-
-    Ok(())
-}
-
-async fn shutdown_signal() {
-    let ctrl_c = async { tokio::signal::ctrl_c().await.expect("failed to install Ctrl+C handler") };
-
-    #[cfg(unix)]
-    let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler")
-            .recv()
-            .await;
-    };
-
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
-
-    info!("Shutdown signal received, draining connections");
-}
-```
+> **Canonical `main.rs` + `shutdown_signal()`** is in `rust-architect/references/rust-setup.md`.
+> Key pattern: `axum::serve(listener, app).with_graceful_shutdown(shutdown_signal()).await?;`
+> Handles both `SIGINT` (Ctrl+C) and `SIGTERM` (container orchestrator).
 
 ---
 
@@ -341,7 +264,7 @@ pub async fn ready(State(state): State<AppState>) -> impl IntoResponse {
 | Rule | Rationale |
 |------|-----------|
 | Thin handlers | Testable business logic in services |
-| `Arc<AppState>` | Cheaply cloned across requests |
+| `State<AppState>` | axum auto-wraps in Arc; don't double-wrap |
 | Never return internal errors | Security: no stack traces to clients |
 | Validate at extractor level | Early rejection before business logic |
 | Use `?` throughout | Clean propagation via `IntoResponse` |

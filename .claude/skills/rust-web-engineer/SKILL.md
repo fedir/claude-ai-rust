@@ -68,21 +68,10 @@ pub enum UserStatus { Active, Inactive, Suspended }
 ```
 
 ### 2. Error Types
-```rust
-#[derive(Debug, thiserror::Error)]
-pub enum AppError {
-    #[error("not found")]
-    NotFound,
-    #[error("validation: {0}")]
-    Validation(#[from] validator::ValidationErrors),
-    #[error("unauthorized")]
-    Unauthorized,
-    #[error("database error")]
-    Database(#[from] sqlx::Error),
-}
 
-impl IntoResponse for AppError { /* map to JSON + StatusCode */ }
-```
+> **Canonical `AppError`** is in `rust-architect/references/rust-setup.md`.
+> Variants: `NotFound`, `Validation`, `Unauthorized`, `TokenExpired`, `Forbidden`,
+> `Conflict`, `Database`, `Internal`. Each maps to correct HTTP status code.
 
 ### 3. Data Layer (sqlx queries)
 ```rust
@@ -133,8 +122,8 @@ async fn test_create_user() {
 
 ## MUST DO
 
-- `AppState` with `Arc` for cheap clone across handlers
-- Validate request DTOs at handler boundary with `validator`
+- `State<AppState>` — axum wraps in Arc internally; do NOT double-wrap
+- Validate request DTOs at handler boundary with `validator` (or `garde`)
 - Map `sqlx::Error` to domain errors, never expose raw DB errors
 - All async database functions return `Result<T, sqlx::Error>` or `Result<T, AppError>`
 - Graceful shutdown with `with_graceful_shutdown`
