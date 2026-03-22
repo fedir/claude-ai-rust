@@ -152,30 +152,41 @@ let _archived = published.archive();
 
 ## Strategy Pattern
 
+> **Note:** Use integer cents (i64) or `rust_decimal::Decimal` for money — never `f64`.
+> This example uses `i64` cents for correctness.
+
 ```rust
 pub trait PricingStrategy: Send + Sync {
-    fn calculate(&self, base_price: f64, quantity: u32) -> f64;
+    /// Returns price in cents.
+    fn calculate(&self, unit_price_cents: i64, quantity: u32) -> i64;
 }
 
 pub struct RegularPricing;
-pub struct BulkPricing { pub threshold: u32, pub discount: f64 }
-pub struct MemberPricing { pub discount_pct: f64 }
+
+pub struct BulkPricing {
+    pub threshold: u32,
+    pub discount_bps: u32, // basis points: 1000 = 10%
+}
 
 impl PricingStrategy for RegularPricing {
-    fn calculate(&self, base_price: f64, quantity: u32) -> f64 {
-        base_price * quantity as f64
+    fn calculate(&self, unit_price_cents: i64, quantity: u32) -> i64 {
+        unit_price_cents * i64::from(quantity)
     }
 }
 
 impl PricingStrategy for BulkPricing {
-    fn calculate(&self, base_price: f64, quantity: u32) -> f64 {
-        let total = base_price * quantity as f64;
-        if quantity >= self.threshold { total * (1.0 - self.discount) } else { total }
+    fn calculate(&self, unit_price_cents: i64, quantity: u32) -> i64 {
+        let total = unit_price_cents * i64::from(quantity);
+        if quantity >= self.threshold {
+            total - (total * i64::from(self.discount_bps) / 10_000)
+        } else {
+            total
+        }
     }
 }
 
 pub struct Cart {
-    items: Vec<(f64, u32)>,
+    items: Vec<(i64, u32)>, // (unit_price_cents, quantity)
     strategy: Box<dyn PricingStrategy>,
 }
 
@@ -184,21 +195,32 @@ impl Cart {
         Cart { items: vec![], strategy: Box::new(strategy) }
     }
 
-    pub fn total(&self) -> f64 {
+    #[must_use]
+    pub fn total(&self) -> i64 {
         self.items.iter().map(|(p, q)| self.strategy.calculate(*p, *q)).sum()
     }
 }
 
 // With enum dispatch (preferred for closed set of strategies — no heap allocation):
-pub enum Pricing { Regular, Bulk { threshold: u32 }, Member { discount: f64 } }
+pub enum Pricing {
+    Regular,
+    Bulk { threshold: u32, discount_bps: u32 },
+    Member { discount_bps: u32 },
+}
 
 impl Pricing {
-    pub fn calculate(&self, price: f64, qty: u32) -> f64 {
+    #[must_use]
+    pub fn calculate(&self, price_cents: i64, qty: u32) -> i64 {
+        let total = price_cents * i64::from(qty);
         match self {
-            Self::Regular => price * qty as f64,
-            Self::Bulk { threshold } if qty >= *threshold => price * qty as f64 * 0.9,
-            Self::Bulk { .. } => price * qty as f64,
-            Self::Member { discount } => price * qty as f64 * (1.0 - discount),
+            Self::Regular => total,
+            Self::Bulk { threshold, discount_bps } if qty >= *threshold => {
+                total - (total * i64::from(*discount_bps) / 10_000)
+            }
+            Self::Bulk { .. } => total,
+            Self::Member { discount_bps } => {
+                total - (total * i64::from(*discount_bps) / 10_000)
+            }
         }
     }
 }
@@ -260,9 +282,7 @@ async fn email_notification_handler(mut rx: broadcast::Receiver<DomainEvent>) {
 ## Repository Pattern
 
 ```rust
-use async_trait::async_trait;
-
-#[async_trait]
+// Native async fn in traits — no async-trait crate needed (Rust 1.75+)
 pub trait UserRepository: Send + Sync {
     async fn find_by_id(&self, id: UserId) -> Result<Option<User>, RepositoryError>;
     async fn find_by_email(&self, email: &str) -> Result<Option<User>, RepositoryError>;
@@ -274,7 +294,6 @@ pub struct PostgresUserRepository {
     pool: sqlx::PgPool,
 }
 
-#[async_trait]
 impl UserRepository for PostgresUserRepository {
     async fn find_by_id(&self, id: UserId) -> Result<Option<User>, RepositoryError> {
         sqlx::query_as!(
@@ -311,7 +330,65 @@ pub struct InMemoryUserRepository {
 | Shared ownership across threads | `Arc<T>` |
 | Interior mutability in single-threaded context | `RefCell<T>` / `Cell<T>` |
 | Interior mutability across threads | `Mutex<T>` / `RwLock<T>` |
-| Lazy initialization | `once_cell::sync::Lazy` / `std::sync::OnceLock` |
+| Lazy initialization | `std::sync::LazyLock` (or `std::sync::OnceLock`) |
+
+## Modern Rust Idioms (2024 Edition)
+
+### let-else for Early Returns
+
+```rust
+// Before (verbose):
+fn process(input: Option<&str>) -> Result<(), Error> {
+    let value = match input {
+        Some(v) => v,
+        None => return Err(Error::Missing),
+    };
+    // use value
+}
+
+// After (let-else — clean):
+fn process(input: Option<&str>) -> Result<(), Error> {
+    let Some(value) = input else {
+        return Err(Error::Missing);
+    };
+    // use value
+}
+
+// Works with Result too:
+let Ok(config) = AppConfig::load() else {
+    tracing::error!("Failed to load config");
+    std::process::exit(1);
+};
+```
+
+### #[must_use] for Important Return Values
+
+```rust
+#[must_use]
+pub fn validate(input: &str) -> Result<ValidatedInput, ValidationError> { ... }
+
+// Caller gets a warning if they ignore the Result:
+// validate(input); // WARNING: unused `Result` that must be used
+
+#[must_use = "connections must be returned to the pool"]
+pub struct PooledConnection { ... }
+```
+
+### std::sync::LazyLock for Lazy Statics
+
+```rust
+use std::sync::LazyLock;
+use regex::Regex;
+
+static EMAIL_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
+        .expect("valid regex")
+});
+
+fn is_valid_email(email: &str) -> bool {
+    EMAIL_RE.is_match(email)
+}
+```
 
 ## Anti-patterns to Avoid
 
@@ -323,3 +400,7 @@ pub struct InMemoryUserRepository {
 | Deep inheritance via traits | Trait object hell | Prefer composition and enums |
 | `dyn Trait` for closed set | Heap allocation, no exhaustive match | Use `enum` |
 | Shared mutable global state | Hard to test, race conditions | Use `Arc<Mutex<T>>` or channels |
+| `f64` for money | Floating-point rounding errors | Use `i64` cents or `rust_decimal::Decimal` |
+| `async-trait` crate | Unnecessary heap allocation | Native `async fn` in traits (Rust 1.75+) |
+| `once_cell` / `lazy_static` | Unnecessary dependency | `std::sync::LazyLock` (stable in std) |
+| `Arc<AppState>` in axum | Double-wrapping — axum already wraps in Arc | `State<AppState>` directly |
