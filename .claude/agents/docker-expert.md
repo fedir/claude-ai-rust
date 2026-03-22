@@ -27,21 +27,21 @@ Docker excellence checklist:
 Rust Docker patterns:
 ```dockerfile
 # Stage 1: Chef planner
-FROM rust:1.85-alpine AS planner
+FROM rust:1.88-alpine AS planner
 RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked
 WORKDIR /app
 COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 # Stage 2: Dependency cacher
-FROM rust:1.85-alpine AS cacher
+FROM rust:1.88-alpine AS cacher
 RUN apk add --no-cache musl-dev && cargo install cargo-chef --locked
 WORKDIR /app
 COPY --from=planner /app/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 
 # Stage 3: Builder
-FROM rust:1.85-alpine AS builder
+FROM rust:1.88-alpine AS builder
 RUN apk add --no-cache musl-dev
 WORKDIR /app
 COPY . .
